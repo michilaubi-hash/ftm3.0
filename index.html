@@ -147,6 +147,10 @@
       border-color: rgba(96,165,250,.55);
       box-shadow: 0 0 0 3px rgba(96,165,250,.15);
     }
+    .num.neg{
+      border-color: rgba(251,113,133,.45);
+      background: rgba(251,113,133,.12);
+    }
 
     .pts{
       min-width: 64px;
@@ -295,11 +299,6 @@
       border-color: rgba(96,165,250,.35);
       background: linear-gradient(180deg, rgba(96,165,250,.20), rgba(96,165,250,.08));
     }
-    .btn.danger{
-      border-color: rgba(251,113,133,.35);
-      background: linear-gradient(180deg, rgba(251,113,133,.18), rgba(251,113,133,.07));
-      color: #ffd0d7;
-    }
     .btn.ghost{
       border-color: rgba(255,255,255,.10);
       background: rgba(255,255,255,.04);
@@ -359,10 +358,35 @@
       color: var(--text);
     }
 
-    /* Chart */
-    .chartWrap{
-      padding: 12px;
+    /* Simple mode: ± button next to input */
+    .simpleWrap{
+      display:flex;
+      align-items:center;
+      gap:6px;
     }
+    .signBtn{
+      width:36px;
+      height:40px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:var(--muted);
+      font-weight:950;
+      font-size:14px;
+      cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .signBtn.neg{
+      color: var(--danger);
+      border-color: rgba(251,113,133,.45);
+      background: rgba(251,113,133,.10);
+    }
+
+    /* Chart */
+    .chartWrap{ padding: 12px; }
     .chartBox{
       width:100%;
       border-radius: 14px;
@@ -425,6 +449,7 @@
       .colTagPts{ width: 58px; }
       .sumPts{ min-width: 86px; }
       .segBtn{ padding: 0 10px; }
+      .signBtn{ width:34px; }
     }
   </style>
 </head>
@@ -481,7 +506,7 @@
           <div class="row">
             <div class="left">
               <div class="label">Simple Mode</div>
-              <div class="hint">Nur Punkte dieser Runde erfassen (keine Ansage/Ist-Berechnung)</div>
+              <div class="hint">Nur Punkte dieser Runde erfassen (Minus via ± Button)</div>
             </div>
             <div class="inputs">
               <div class="toggle" id="modeToggle" data-kind="modeToggle" role="switch" aria-label="Simple Mode umschalten">
@@ -538,7 +563,7 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "ftn_dark_clean_v5";
+    const STORAGE_KEY = "ftn_dark_clean_v6";
 
     let state = loadState();
 
@@ -557,17 +582,38 @@
 
     function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
 
+    function normalizeSimpleCell(cell){
+      // Accept old formats: number / null
+      if (cell === null || cell === undefined) return null;
+      if (typeof cell === "number" && Number.isFinite(cell)){
+        return { value: Math.abs(cell), neg: cell < 0 };
+      }
+      if (typeof cell === "object"){
+        const v = (cell.value === null || cell.value === undefined) ? null : Number(cell.value);
+        const value = Number.isFinite(v) ? Math.abs(v) : null;
+        const neg = Boolean(cell.neg) || (Number.isFinite(v) && v < 0);
+        return (value === null && !neg) ? null : { value, neg };
+      }
+      return null;
+    }
+
     function normalizeRound(r, playerCount){
       if (!r || typeof r !== "object") r = {};
       if (!Array.isArray(r.bid)) r.bid = [];
       if (!Array.isArray(r.actual)) r.actual = [];
       if (!Array.isArray(r.simple)) r.simple = [];
+
       while (r.bid.length < playerCount) r.bid.push(null);
       while (r.actual.length < playerCount) r.actual.push(null);
       while (r.simple.length < playerCount) r.simple.push(null);
+
       if (r.bid.length > playerCount) r.bid = r.bid.slice(0, playerCount);
       if (r.actual.length > playerCount) r.actual = r.actual.slice(0, playerCount);
       if (r.simple.length > playerCount) r.simple = r.simple.slice(0, playerCount);
+
+      // Normalize simple cells
+      r.simple = r.simple.map(normalizeSimpleCell);
+
       return r;
     }
 
@@ -690,6 +736,12 @@
       return state.mode === "simple" ? "Simple" : "Normal";
     }
 
+    function ensureSimpleCell(r,p){
+      if (!state.rounds[r].simple[p]) state.rounds[r].simple[p] = { value: null, neg: false };
+      if (state.rounds[r].simple[p].value === undefined) state.rounds[r].simple[p].value = null;
+      if (state.rounds[r].simple[p].neg === undefined) state.rounds[r].simple[p].neg = false;
+    }
+
     function renderRounds(){
       const roundsEl = document.getElementById("rounds");
       roundsEl.innerHTML = "";
@@ -766,17 +818,33 @@
               group.appendChild(warn);
             }
           } else {
-            const sp = state.rounds[r].simple[p];
-            // IMPORTANT: inputmode decimal -> usually shows "-" on mobile keyboards
+            const cell = state.rounds[r].simple[p] || null;
+            const neg = cell?.neg === true;
+            const val = (cell && cell.value !== null && cell.value !== undefined) ? cell.value : "";
+
             row.innerHTML = `
               <div class="left">
                 <div class="label">${escapeHtml(state.players[p])}</div>
               </div>
 
-              <div class="inputs">
-                <input class="num" type="number" inputmode="decimal"
-                  data-kind="simple" data-round="${r}" data-player="${p}"
-                  value="${sp ?? ""}" placeholder="0"
+              <div class="inputs simpleWrap">
+                <button class="signBtn ${neg ? "neg" : ""}"
+                  type="button"
+                  data-kind="toggleSign"
+                  data-round="${r}"
+                  data-player="${p}"
+                  aria-label="Vorzeichen wechseln">
+                  ±
+                </button>
+
+                <input class="num ${neg ? "neg" : ""}"
+                  type="number"
+                  inputmode="numeric"
+                  data-kind="simpleValue"
+                  data-round="${r}"
+                  data-player="${p}"
+                  value="${val}"
+                  placeholder="0"
                   enterkeyhint="next">
               </div>
             `;
@@ -798,8 +866,11 @@
 
     function getRoundPoints(r, p){
       if (state.mode === "simple"){
-        const v = state.rounds[r].simple[p];
-        return (v === null || v === undefined) ? 0 : Number(v);
+        const cell = state.rounds[r].simple[p];
+        if (!cell || cell.value === null || cell.value === undefined) return 0;
+        const v = Number(cell.value);
+        if (!Number.isFinite(v)) return 0;
+        return cell.neg ? -Math.abs(v) : Math.abs(v);
       }
       return calcPoints(state.rounds[r].bid[p], state.rounds[r].actual[p]);
     }
@@ -817,7 +888,6 @@
     function renderSums(){
       const sums = computeSums();
 
-      // Build display order
       const idxs = state.players.map((_, i) => i);
       if (state.sumView === "points"){
         idxs.sort((a,b) => sums[b] - sums[a]);
@@ -861,6 +931,8 @@
       const rounds = state.rounds.length;
       const players = state.players.length;
 
+      const sumsNow = computeSums();
+
       // Legend
       const legend = document.getElementById("legend");
       legend.innerHTML = "";
@@ -872,7 +944,7 @@
         legend.appendChild(item);
       }
 
-      // Build cumulative series per player
+      // Cumulative series per player
       const series = [];
       for (let p=0; p<players; p++){
         let cum = 0;
@@ -891,7 +963,6 @@
       const y0 = yMin - pad;
       const y1 = yMax + pad;
 
-      // SVG chart
       const W = 680, H = 320;
       const m = {l:44, r:16, t:16, b:36};
       const iw = W - m.l - m.r;
@@ -907,6 +978,7 @@
         return m.t + (ih * (1 - t));
       }
 
+      // Grid
       const yTicks = 4;
       let grid = "";
       for (let i=0; i<=yTicks; i++){
@@ -916,7 +988,7 @@
         grid += `<text x="${m.l-8}" y="${y+4}" text-anchor="end" font-size="10" fill="rgba(255,255,255,.45)">${Math.round(v)}</text>`;
       }
 
-      // x-axis labels (show 1, mid, last)
+      // X labels
       let xLabels = "";
       if (rounds > 0){
         const labelIdxs = rounds <= 3 ? [...Array(rounds).keys()] : [0, Math.floor((rounds-1)/2), rounds-1];
@@ -941,7 +1013,6 @@
         }
         paths += `<path d="${d}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linecap="round" />`;
 
-        // last point marker
         const lx = xForRound(pts.length-1);
         const ly = yForVal(pts[pts.length-1]);
         paths += `<circle cx="${lx}" cy="${ly}" r="3.5" fill="${c}" opacity="0.95"/>`;
@@ -959,7 +1030,7 @@
       `;
       document.getElementById("chartBox").innerHTML = svg;
 
-      // Stats table (avg / max / min per round)
+      // Stats rows: Ø / Max / Min per round, plus total on right
       const statsTable = document.getElementById("statsTable");
       statsTable.innerHTML = "";
       for (let p=0; p<players; p++){
@@ -977,7 +1048,7 @@
             <div class="label">${escapeHtml(state.players[p])}</div>
             <div class="hint">Ø ${avg.toFixed(1)} / Runde · Max ${max} · Min ${min}</div>
           </div>
-          <div class="pts ${ptsClass(computeSums()[p])}">${computeSums()[p]}</div>
+          <div class="pts ${ptsClass(sumsNow[p])}">${sumsNow[p]}</div>
         `;
         statsTable.appendChild(row);
       }
@@ -1082,7 +1153,6 @@
       if (!(el instanceof HTMLInputElement)) return;
       if (e.key !== "Enter") return;
 
-      // Only for the scoring inputs / name inputs
       if (el.classList.contains("num") || el.classList.contains("nameInput")){
         e.preventDefault();
         if (el.classList.contains("num")){
@@ -1131,21 +1201,25 @@
         return;
       }
 
-      if (el.dataset.kind === "simple"){
+      if (el.dataset.kind === "simpleValue"){
         const r = Number(el.dataset.round);
         const p = Number(el.dataset.player);
         if (!Number.isFinite(r) || !Number.isFinite(p)) return;
 
         setUndoSnapshot();
-        state.rounds[r].simple[p] = numOrNull(el.value); // null -> treated as 0
+
+        ensureSimpleCell(r,p);
+        const v = numOrNull(el.value);
+        state.rounds[r].simple[p].value = (v === null) ? null : Math.abs(v);
+
         saveState();
+        renderRounds(); // update red style if needed
         renderSums();
         renderStats();
         setStatus("gespeichert");
         return;
       }
 
-      // playerName: keep it on input but single-step undo still works (snapshot just before first change)
       if (el.dataset.kind === "playerName"){
         const p = Number(el.dataset.player);
         if (!Number.isFinite(p)) return;
@@ -1168,6 +1242,24 @@
       if (el.dataset.kind === "modeToggle" || el.closest?.('[data-kind="modeToggle"]')){
         const isSimple = state.mode === "simple";
         setMode(isSimple ? "normal" : "simple");
+        return;
+      }
+
+      // ± sign toggle (simple mode)
+      if (el.dataset.kind === "toggleSign"){
+        const r = Number(el.dataset.round);
+        const p = Number(el.dataset.player);
+        if (!Number.isFinite(r) || !Number.isFinite(p)) return;
+
+        setUndoSnapshot();
+        ensureSimpleCell(r,p);
+        state.rounds[r].simple[p].neg = !state.rounds[r].simple[p].neg;
+
+        saveState();
+        renderRounds();
+        renderSums();
+        renderStats();
+        setStatus("gespeichert");
         return;
       }
 
@@ -1233,11 +1325,10 @@
 
       setUndoSnapshot();
 
-      const keepMode = state.mode;        // keep setting
-      const keepSumView = "standard";     // reset view to standard
+      const keepMode = state.mode;
       state = defaultState();
       state.mode = keepMode;
-      state.sumView = keepSumView;
+      state.sumView = "standard";
 
       localStorage.removeItem(STORAGE_KEY);
       ensureAtLeastOneRound();
