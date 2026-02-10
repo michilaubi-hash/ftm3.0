@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>FTN – Punktezähler</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b0f16">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FTN Punkte">
+
+  <style>
+    :root{
+      --bg:#0b0f16;
+      --surface:#0f172a;
+      --text:#e5e7eb;
+      --muted:#9aa4b2;
+      --field:rgba(255,255,255,.07);
+      --fieldLine:rgba(255,255,255,.14);
+      --accent:#60a5fa;
+      --danger:#fb7185;
+      --ok:#34d399;
+      --shadow: 0 16px 40px rgba(0,0,0,.35);
+      --r:16px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:-apple-system, system-ui, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1100px 700px at 20% -10%, #111c35 0%, var(--bg) 55%);
+      color: var(--text);
+    }
+    .wrap{
+      max-width:720px;
+      margin:0 auto;
+      padding: 14px 12px 96px;
+      padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    }
+
+    .top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      padding: 2px 2px 10px;
+    }
+    h1{ margin:0; font-size: 18px; font-weight: 850; letter-spacing: .2px; }
+    .status{
+      font-size:12px;
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 999px;
+      padding: 8px 10px;
+      height: 34px;
+      white-space: nowrap;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .dot{width:8px;height:8px;border-radius:999px;background:var(--accent);opacity:.9}
+
+    .section{ margin: 12px 0; }
+    .sectionTitle{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+      padding: 0 6px 8px;
+      letter-spacing:.2px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .group{
+      background: rgba(15,23,42,.78);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: var(--r);
+      overflow:hidden;
+      box-shadow: var(--shadow);
+    }
+    .group.sum{
+      background:
+        linear-gradient(180deg, rgba(96,165,250,.18), rgba(15,23,42,.82) 55%),
+        rgba(15,23,42,.78);
+      border: 2px solid rgba(96,165,250,.45);
+      border-radius: calc(var(--r) + 2px);
+      box-shadow:
+        0 16px 40px rgba(0,0,0,.35),
+        0 0 0 4px rgba(96,165,250,.08);
+    }
+
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding: 12px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .row:last-child{ border-bottom:0; }
+
+    .left{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      min-width: 0;
+    }
+    .label{
+      font-size: 14px;
+      font-weight: 850;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .hint{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 750;
+    }
+
+    .inputs{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex: 0 0 auto;
+    }
+
+    .num{
+      width: 74px;
+      height: 40px;
+      border-radius: 12px;
+      border: 1px solid var(--fieldLine);
+      background: var(--field);
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 800;
+      text-align:center;
+      outline:none;
+      -webkit-appearance:none;
+      appearance:none;
+    }
+    .num:focus{
+      border-color: rgba(96,165,250,.55);
+      box-shadow: 0 0 0 3px rgba(96,165,250,.15);
+    }
+
+    .pts{
+      min-width: 64px;
+      height: 40px;
+      padding: 0 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight: 950;
+      font-size: 14px;
+      letter-spacing:.2px;
+    }
+    .pts.good{ color: var(--ok); }
+    .pts.bad{ color: var(--danger); }
+
+    .sumPts{
+      min-width: 92px;
+      height: 44px;
+      font-size: 16px;
+      background: rgba(96,165,250,.12);
+      border-color: rgba(96,165,250,.22);
+    }
+
+    .roundHeader{
+      padding: 12px 12px 10px;
+      background: rgba(255,255,255,.03);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      font-weight: 900;
+      font-size: 13px;
+      letter-spacing:.2px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .modePill{
+      font-size: 11px;
+      font-weight: 950;
+      color: var(--muted);
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      padding: 6px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .group.currentRound{
+      border-color: rgba(96,165,250,.22);
+      box-shadow: var(--shadow), 0 0 0 3px rgba(96,165,250,.10);
+    }
+
+    .colHeader{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding: 8px 12px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing:.3px;
+    }
+    .colHeader .spacerName{
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .colHeader .cols{
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .colTag{ width: 74px; text-align:center; }
+    .colTagPts{ width: 64px; text-align:center; }
+
+    .warnRow{
+      padding: 10px 12px;
+      background: rgba(251,113,133,.12);
+      color: #fecdd3;
+      font-size: 12px;
+      font-weight: 900;
+      border-top: 1px solid rgba(251,113,133,.20);
+    }
+
+    .nameRow{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      width:100%;
+    }
+    .nameInput{
+      flex: 1 1 auto;
+      height: 40px;
+      border-radius: 12px;
+      border: 1px solid var(--fieldLine);
+      padding: 0 10px;
+      font-size: 14px;
+      font-weight: 800;
+      outline:none;
+      background: var(--field);
+      color: var(--text);
+    }
+    .nameInput:focus{
+      border-color: rgba(96,165,250,.55);
+      box-shadow: 0 0 0 3px rgba(96,165,250,.15);
+    }
+    .iconBtn{
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      font-weight: 950;
+      font-size: 18px;
+      line-height: 1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color: var(--danger);
+      cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .iconBtn[disabled]{ opacity:.35; cursor:not-allowed; }
+
+    .btnRow{
+      padding: 12px;
+      display:flex;
+      gap:10px;
+    }
+    .btn{
+      flex:1 1 auto;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      font-weight: 900;
+      font-size: 14px;
+      cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn.primary{
+      border-color: rgba(96,165,250,.35);
+      background: linear-gradient(180deg, rgba(96,165,250,.20), rgba(96,165,250,.08));
+    }
+    .btn.danger{
+      border-color: rgba(251,113,133,.35);
+      background: linear-gradient(180deg, rgba(251,113,133,.18), rgba(251,113,133,.07));
+      color: #ffd0d7;
+    }
+    .btn.ghost{
+      border-color: rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+    }
+    .btn[disabled]{ opacity:.45; cursor:not-allowed; }
+
+    /* Simple toggle */
+    .toggle{
+      width: 52px;
+      height: 32px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      position: relative;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .toggleKnob{
+      position:absolute;
+      top: 4px; left: 4px;
+      width: 24px; height: 24px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.85);
+      transition: transform .18s ease;
+    }
+    .toggle.on{
+      border-color: rgba(96,165,250,.35);
+      background: rgba(96,165,250,.18);
+    }
+    .toggle.on .toggleKnob{
+      transform: translateX(20px);
+      background: rgba(255,255,255,.95);
+    }
+
+    /* Segmented control (Standard / Nach Punkten) */
+    .seg{
+      display:inline-flex;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      border-radius: 999px;
+      overflow:hidden;
+      height: 32px;
+    }
+    .segBtn{
+      border:0;
+      background:transparent;
+      color: var(--muted);
+      font-weight: 950;
+      font-size: 12px;
+      padding: 0 12px;
+      cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .segBtn.active{
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+    }
+
+    /* Chart */
+    .chartWrap{
+      padding: 12px;
+    }
+    .chartBox{
+      width:100%;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      overflow:hidden;
+    }
+    .legend{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 14px;
+      padding: 10px 12px 0;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 12px;
+    }
+    .legItem{ display:flex; align-items:center; gap:8px; }
+    .swatch{ width:10px; height:10px; border-radius:999px; }
+
+    .tabbar{
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      padding: 10px 12px;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom));
+      background: rgba(11,15,22,.72);
+      border-top: 1px solid rgba(255,255,255,.10);
+      backdrop-filter: blur(10px);
+    }
+    .tabs{
+      max-width:720px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:10px;
+    }
+    .tab{
+      height:44px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+      font-weight: 950;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tab.active{
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      border-color: rgba(255,255,255,.18);
+    }
+
+    .screen{ display:none; }
+    .screen.active{ display:block; }
+
+    @media (max-width: 380px){
+      .num{ width: 66px; }
+      .colTag{ width: 66px; }
+      .pts{ min-width: 58px; }
+      .colTagPts{ width: 58px; }
+      .sumPts{ min-width: 86px; }
+      .segBtn{ padding: 0 10px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>FTN Punktezähler</h1>
+      <div class="status"><span class="dot"></span><span id="statusText">bereit</span></div>
+    </div>
+
+    <!-- SCORE -->
+    <div class="screen active" id="screenScore">
+      <div class="section">
+        <div class="sectionTitle">Runden</div>
+        <div id="rounds"></div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">
+          <span>Summe</span>
+          <span class="seg" aria-label="Summe Ansicht">
+            <button class="segBtn" id="segStandard" type="button">Standard</button>
+            <button class="segBtn" id="segPoints" type="button">Nach Punkten</button>
+          </span>
+        </div>
+        <div class="group sum" id="sumGroup"></div>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="screen" id="screenStats">
+      <div class="section">
+        <div class="sectionTitle">Punkteverlauf</div>
+        <div class="group">
+          <div class="legend" id="legend"></div>
+          <div class="chartWrap">
+            <div class="chartBox" id="chartBox"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">Kennzahlen</div>
+        <div class="group" id="statsTable"></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="screen" id="screenSettings">
+      <div class="section">
+        <div class="sectionTitle">Modus</div>
+        <div class="group">
+          <div class="row">
+            <div class="left">
+              <div class="label">Simple Mode</div>
+              <div class="hint">Nur Punkte dieser Runde erfassen (keine Ansage/Ist-Berechnung)</div>
+            </div>
+            <div class="inputs">
+              <div class="toggle" id="modeToggle" data-kind="modeToggle" role="switch" aria-label="Simple Mode umschalten">
+                <div class="toggleKnob"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="rulesSection">
+        <div class="sectionTitle">Regeln (nur Normalmodus)</div>
+        <div class="group">
+          <div class="row">
+            <div class="left">
+              <div class="label">0 in Folge</div>
+              <div class="hint" id="zeroRuleHint">Max. 2× 0 hintereinander</div>
+            </div>
+            <div class="inputs">
+              <input class="num" type="number" min="0" inputmode="numeric"
+                data-kind="maxZero" id="maxZeroInput" value="2" enterkeyhint="done">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">Spieler</div>
+        <div class="group" id="playersGroup"></div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">Aktionen</div>
+        <div class="group">
+          <div class="btnRow">
+            <button class="btn" onclick="addPlayer()">+ Spieler</button>
+            <button class="btn primary" onclick="newGame()">Neues Spiel</button>
+          </div>
+          <div class="btnRow" style="padding-top:0;">
+            <button class="btn ghost" id="undoBtn" onclick="undo()" disabled>Rückgängig</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Tabs -->
+  <div class="tabbar">
+    <div class="tabs">
+      <div class="tab active" id="tabScore" onclick="showScreen('score')">Punkte</div>
+      <div class="tab" id="tabStats" onclick="showScreen('stats')">Statistiken</div>
+      <div class="tab" id="tabSettings" onclick="showScreen('settings')">Einstellungen</div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "ftn_dark_clean_v5";
+
+    let state = loadState();
+
+    // Single-step undo snapshot
+    let undoSnapshot = null;
+
+    function defaultState(){
+      return {
+        mode: "normal", // "normal" | "simple"
+        sumView: "standard", // "standard" | "points"
+        players:["Spieler 1","Spieler 2","Spieler 3"],
+        rounds:[],
+        rules: { maxZeroStreak: 2 }
+      };
+    }
+
+    function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+    function normalizeRound(r, playerCount){
+      if (!r || typeof r !== "object") r = {};
+      if (!Array.isArray(r.bid)) r.bid = [];
+      if (!Array.isArray(r.actual)) r.actual = [];
+      if (!Array.isArray(r.simple)) r.simple = [];
+      while (r.bid.length < playerCount) r.bid.push(null);
+      while (r.actual.length < playerCount) r.actual.push(null);
+      while (r.simple.length < playerCount) r.simple.push(null);
+      if (r.bid.length > playerCount) r.bid = r.bid.slice(0, playerCount);
+      if (r.actual.length > playerCount) r.actual = r.actual.slice(0, playerCount);
+      if (r.simple.length > playerCount) r.simple = r.simple.slice(0, playerCount);
+      return r;
+    }
+
+    function sanitizeState(s){
+      if (!s || !Array.isArray(s.players) || s.players.length < 1) s = defaultState();
+      if (!Array.isArray(s.rounds)) s.rounds = [];
+      if (!s.rules || typeof s.rules !== "object") s.rules = { maxZeroStreak: 2 };
+      if (s.mode !== "simple" && s.mode !== "normal") s.mode = "normal";
+      if (s.sumView !== "standard" && s.sumView !== "points") s.sumView = "standard";
+
+      const mz = Number(s.rules.maxZeroStreak);
+      s.rules.maxZeroStreak = Number.isFinite(mz) ? Math.max(0, Math.floor(mz)) : 2;
+
+      for (let i=0;i<s.rounds.length;i++){
+        s.rounds[i] = normalizeRound(s.rounds[i], s.players.length);
+      }
+      return s;
+    }
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? sanitizeState(JSON.parse(raw)) : sanitizeState(defaultState());
+      }catch{
+        return sanitizeState(defaultState());
+      }
+    }
+    function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function setStatus(msg){ document.getElementById("statusText").textContent = msg; }
+
+    function setUndoSnapshot(){
+      undoSnapshot = deepClone(state);
+      document.getElementById("undoBtn").disabled = false;
+    }
+    window.undo = function(){
+      if (!undoSnapshot) return;
+      state = sanitizeState(deepClone(undoSnapshot));
+      undoSnapshot = null;
+      document.getElementById("undoBtn").disabled = true;
+      saveState();
+      renderAll();
+      setStatus("rückgängig");
+    }
+
+    function ensureAtLeastOneRound(){
+      if (state.rounds.length === 0){
+        state.rounds.push(normalizeRound({}, state.players.length));
+      }
+    }
+
+    function numOrNull(v){
+      if (v === "" || v === null || v === undefined) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function calcPoints(bid, actual){
+      if (bid === null || actual === null) return 0;
+      if (bid === actual) return 10 + (bid * bid);
+      return -Math.abs(bid - actual);
+    }
+    function ptsClass(pts){
+      if (pts > 0) return "good";
+      if (pts < 0) return "bad";
+      return "";
+    }
+
+    function isForbiddenZero(r,p){
+      const bid = state.rounds[r]?.bid?.[p];
+      if (bid !== 0) return false;
+
+      const k = state.rules.maxZeroStreak;
+      if (k <= 0) return true;
+
+      for (let i = 1; i <= k; i++){
+        const prev = (r - i >= 0) ? state.rounds[r - i].bid[p] : null;
+        if (prev !== 0) return false;
+      }
+      return true;
+    }
+    function zeroWarnText(){
+      const k = state.rules.maxZeroStreak;
+      if (k <= 0) return "❌ 0 ist nicht erlaubt";
+      return `❌ 0 ist hier nicht erlaubt (${k}× in Folge erlaubt)`;
+    }
+
+    function escapeHtml(str){
+      return String(str)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    function updateZeroRuleUI(){
+      const input = document.getElementById("maxZeroInput");
+      input.value = String(state.rules.maxZeroStreak);
+
+      const hint = document.getElementById("zeroRuleHint");
+      const k = state.rules.maxZeroStreak;
+      hint.textContent = (k <= 0) ? "0 nie erlaubt" : `Max. ${k}× 0 hintereinander`;
+    }
+
+    function updateModeUI(){
+      const t = document.getElementById("modeToggle");
+      const isSimple = state.mode === "simple";
+      t.classList.toggle("on", isSimple);
+
+      const rulesSection = document.getElementById("rulesSection");
+      rulesSection.style.display = isSimple ? "none" : "block";
+    }
+
+    function updateSumViewUI(){
+      document.getElementById("segStandard").classList.toggle("active", state.sumView === "standard");
+      document.getElementById("segPoints").classList.toggle("active", state.sumView === "points");
+    }
+
+    function modeLabel(){
+      return state.mode === "simple" ? "Simple" : "Normal";
+    }
+
+    function renderRounds(){
+      const roundsEl = document.getElementById("rounds");
+      roundsEl.innerHTML = "";
+      const warnText = zeroWarnText();
+      const isSimple = state.mode === "simple";
+
+      for (let r=0; r<state.rounds.length; r++){
+        const group = document.createElement("div");
+        group.className = "group";
+        group.style.marginBottom = "10px";
+
+        if (r === state.rounds.length - 1) group.classList.add("currentRound");
+
+        if (!isSimple){
+          group.innerHTML = `
+            <div class="roundHeader">
+              <span>Runde ${r+1}</span>
+              <span class="modePill">Modus: ${modeLabel()}</span>
+            </div>
+            <div class="colHeader">
+              <div class="spacerName"></div>
+              <div class="cols">
+                <div class="colTag">Ansage</div>
+                <div class="colTag">Ist</div>
+                <div class="colTagPts">Punkte</div>
+              </div>
+            </div>
+          `;
+        } else {
+          group.innerHTML = `
+            <div class="roundHeader">
+              <span>Runde ${r+1}</span>
+              <span class="modePill">Modus: ${modeLabel()}</span>
+            </div>
+            <div class="colHeader">
+              <div class="spacerName"></div>
+              <div class="cols">
+                <div class="colTag">Punkte (diese Runde)</div>
+              </div>
+            </div>
+          `;
+        }
+
+        for (let p=0; p<state.players.length; p++){
+          const row = document.createElement("div");
+          row.className = "row";
+
+          if (!isSimple){
+            const bid = state.rounds[r].bid[p];
+            const act = state.rounds[r].actual[p];
+            const pts = calcPoints(bid, act);
+
+            row.innerHTML = `
+              <div class="left">
+                <div class="label">${escapeHtml(state.players[p])}</div>
+              </div>
+
+              <div class="inputs">
+                <input class="num" type="number" min="0" inputmode="numeric"
+                  data-kind="bid" data-round="${r}" data-player="${p}" value="${bid ?? ""}"
+                  enterkeyhint="next">
+                <input class="num" type="number" min="0" inputmode="numeric"
+                  data-kind="actual" data-round="${r}" data-player="${p}" value="${act ?? ""}"
+                  enterkeyhint="next">
+                <div class="pts ${ptsClass(pts)}" data-kind="points" data-round="${r}" data-player="${p}">${pts}</div>
+              </div>
+            `;
+            group.appendChild(row);
+
+            if (isForbiddenZero(r,p)){
+              const warn = document.createElement("div");
+              warn.className = "warnRow";
+              warn.textContent = warnText;
+              group.appendChild(warn);
+            }
+          } else {
+            const sp = state.rounds[r].simple[p];
+            // IMPORTANT: inputmode decimal -> usually shows "-" on mobile keyboards
+            row.innerHTML = `
+              <div class="left">
+                <div class="label">${escapeHtml(state.players[p])}</div>
+              </div>
+
+              <div class="inputs">
+                <input class="num" type="number" inputmode="decimal"
+                  data-kind="simple" data-round="${r}" data-player="${p}"
+                  value="${sp ?? ""}" placeholder="0"
+                  enterkeyhint="next">
+              </div>
+            `;
+            group.appendChild(row);
+          }
+        }
+
+        if (r === state.rounds.length - 1){
+          const btnWrap = document.createElement("div");
+          btnWrap.className = "row";
+          btnWrap.style.justifyContent = "flex-start";
+          btnWrap.innerHTML = `<button class="btn primary" style="width:100%;" onclick="addRound()">+ Runde</button>`;
+          group.appendChild(btnWrap);
+        }
+
+        roundsEl.appendChild(group);
+      }
+    }
+
+    function getRoundPoints(r, p){
+      if (state.mode === "simple"){
+        const v = state.rounds[r].simple[p];
+        return (v === null || v === undefined) ? 0 : Number(v);
+      }
+      return calcPoints(state.rounds[r].bid[p], state.rounds[r].actual[p]);
+    }
+
+    function computeSums(){
+      const sums = new Array(state.players.length).fill(0);
+      for (let r=0; r<state.rounds.length; r++){
+        for (let p=0; p<state.players.length; p++){
+          sums[p] += getRoundPoints(r,p);
+        }
+      }
+      return sums;
+    }
+
+    function renderSums(){
+      const sums = computeSums();
+
+      // Build display order
+      const idxs = state.players.map((_, i) => i);
+      if (state.sumView === "points"){
+        idxs.sort((a,b) => sums[b] - sums[a]);
+      }
+
+      const sumGroup = document.getElementById("sumGroup");
+      sumGroup.innerHTML = "";
+      for (const p of idxs){
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `
+          <div class="left"><div class="label">${escapeHtml(state.players[p])}</div></div>
+          <div class="pts sumPts ${ptsClass(sums[p])}">${sums[p]}</div>
+        `;
+        sumGroup.appendChild(row);
+      }
+    }
+
+    function renderPlayers(){
+      const g = document.getElementById("playersGroup");
+      g.innerHTML = "";
+      state.players.forEach((name, idx) => {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `
+          <div class="nameRow">
+            <input class="nameInput" data-kind="playerName" data-player="${idx}" value="${escapeHtml(name)}" enterkeyhint="done">
+            <button class="iconBtn" data-kind="removePlayer" data-player="${idx}" ${state.players.length<=1 ? "disabled" : ""}>×</button>
+          </div>
+        `;
+        g.appendChild(row);
+      });
+    }
+
+    function colorForIndex(i, n){
+      const hue = Math.round((i * 360) / Math.max(1,n));
+      return `hsl(${hue}, 75%, 65%)`;
+    }
+
+    function renderStats(){
+      const rounds = state.rounds.length;
+      const players = state.players.length;
+
+      // Legend
+      const legend = document.getElementById("legend");
+      legend.innerHTML = "";
+      for (let p=0; p<players; p++){
+        const c = colorForIndex(p, players);
+        const item = document.createElement("div");
+        item.className = "legItem";
+        item.innerHTML = `<span class="swatch" style="background:${c}"></span><span>${escapeHtml(state.players[p])}</span>`;
+        legend.appendChild(item);
+      }
+
+      // Build cumulative series per player
+      const series = [];
+      for (let p=0; p<players; p++){
+        let cum = 0;
+        const pts = [];
+        for (let r=0; r<rounds; r++){
+          cum += getRoundPoints(r,p);
+          pts.push(cum);
+        }
+        series.push(pts);
+      }
+
+      const allValues = series.flat();
+      const yMin = (allValues.length ? Math.min(...allValues, 0) : 0);
+      const yMax = (allValues.length ? Math.max(...allValues, 0) : 0);
+      const pad = (yMax - yMin) === 0 ? 10 : Math.ceil((yMax - yMin) * 0.1);
+      const y0 = yMin - pad;
+      const y1 = yMax + pad;
+
+      // SVG chart
+      const W = 680, H = 320;
+      const m = {l:44, r:16, t:16, b:36};
+      const iw = W - m.l - m.r;
+      const ih = H - m.t - m.b;
+
+      function xForRound(r){
+        if (rounds <= 1) return m.l + iw/2;
+        return m.l + (r * (iw/(rounds-1)));
+      }
+      function yForVal(v){
+        if (y1 === y0) return m.t + ih/2;
+        const t = (v - y0) / (y1 - y0);
+        return m.t + (ih * (1 - t));
+      }
+
+      const yTicks = 4;
+      let grid = "";
+      for (let i=0; i<=yTicks; i++){
+        const v = y0 + (i*(y1-y0)/yTicks);
+        const y = yForVal(v);
+        grid += `<line x1="${m.l}" y1="${y}" x2="${W-m.r}" y2="${y}" stroke="rgba(255,255,255,.08)" />`;
+        grid += `<text x="${m.l-8}" y="${y+4}" text-anchor="end" font-size="10" fill="rgba(255,255,255,.45)">${Math.round(v)}</text>`;
+      }
+
+      // x-axis labels (show 1, mid, last)
+      let xLabels = "";
+      if (rounds > 0){
+        const labelIdxs = rounds <= 3 ? [...Array(rounds).keys()] : [0, Math.floor((rounds-1)/2), rounds-1];
+        const uniq = Array.from(new Set(labelIdxs));
+        for (const r of uniq){
+          const x = xForRound(r);
+          xLabels += `<text x="${x}" y="${H-12}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.45)">${r+1}</text>`;
+        }
+      }
+
+      let paths = "";
+      for (let p=0; p<players; p++){
+        const c = colorForIndex(p, players);
+        const pts = series[p];
+        if (pts.length === 0) continue;
+
+        let d = "";
+        for (let r=0; r<pts.length; r++){
+          const x = xForRound(r);
+          const y = yForVal(pts[r]);
+          d += (r===0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+        }
+        paths += `<path d="${d}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linecap="round" />`;
+
+        // last point marker
+        const lx = xForRound(pts.length-1);
+        const ly = yForVal(pts[pts.length-1]);
+        paths += `<circle cx="${lx}" cy="${ly}" r="3.5" fill="${c}" opacity="0.95"/>`;
+      }
+
+      const svg = `
+        <svg viewBox="0 0 ${W} ${H}" width="100%" height="auto" preserveAspectRatio="none">
+          ${grid}
+          <line x1="${m.l}" y1="${m.t+ih}" x2="${W-m.r}" y2="${m.t+ih}" stroke="rgba(255,255,255,.10)" />
+          <line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${m.t+ih}" stroke="rgba(255,255,255,.10)" />
+          ${paths}
+          ${xLabels}
+          <text x="${(m.l + (W-m.r))/2}" y="${H-2}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,.35)">Runden</text>
+        </svg>
+      `;
+      document.getElementById("chartBox").innerHTML = svg;
+
+      // Stats table (avg / max / min per round)
+      const statsTable = document.getElementById("statsTable");
+      statsTable.innerHTML = "";
+      for (let p=0; p<players; p++){
+        const perRound = [];
+        for (let r=0; r<rounds; r++) perRound.push(getRoundPoints(r,p));
+
+        const avg = rounds ? (perRound.reduce((a,b)=>a+b,0)/rounds) : 0;
+        const max = rounds ? Math.max(...perRound) : 0;
+        const min = rounds ? Math.min(...perRound) : 0;
+
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `
+          <div class="left">
+            <div class="label">${escapeHtml(state.players[p])}</div>
+            <div class="hint">Ø ${avg.toFixed(1)} / Runde · Max ${max} · Min ${min}</div>
+          </div>
+          <div class="pts ${ptsClass(computeSums()[p])}">${computeSums()[p]}</div>
+        `;
+        statsTable.appendChild(row);
+      }
+    }
+
+    function renderAll(){
+      ensureAtLeastOneRound();
+      updateModeUI();
+      updateZeroRuleUI();
+      updateSumViewUI();
+      renderRounds();
+      renderSums();
+      renderPlayers();
+      renderStats();
+    }
+
+    // Screen switching
+    window.showScreen = function(which){
+      const score = document.getElementById("screenScore");
+      const stats = document.getElementById("screenStats");
+      const set = document.getElementById("screenSettings");
+      const tabScore = document.getElementById("tabScore");
+      const tabStats = document.getElementById("tabStats");
+      const tabSet = document.getElementById("tabSettings");
+
+      score.classList.remove("active");
+      stats.classList.remove("active");
+      set.classList.remove("active");
+      tabScore.classList.remove("active");
+      tabStats.classList.remove("active");
+      tabSet.classList.remove("active");
+
+      if (which === "settings"){
+        set.classList.add("active"); tabSet.classList.add("active");
+      } else if (which === "stats"){
+        stats.classList.add("active"); tabStats.classList.add("active");
+      } else {
+        score.classList.add("active"); tabScore.classList.add("active");
+      }
+    }
+
+    function confirmModeSwitch(newMode){
+      const label = newMode === "simple" ? "Simple Mode" : "Normalmodus";
+      return confirm(`Modus wechseln zu "${label}"?\n\n⚠️ Das gesamte Spiel wird zurückgesetzt (Spieler, Runden und Werte).`);
+    }
+
+    function setMode(newMode){
+      if (newMode !== "simple" && newMode !== "normal") return;
+      if (newMode === state.mode) return;
+
+      const ok = confirmModeSwitch(newMode);
+      if (!ok){
+        updateModeUI();
+        return;
+      }
+
+      setUndoSnapshot();
+
+      const fresh = defaultState();
+      fresh.mode = newMode;
+      fresh.sumView = "standard";
+      state = sanitizeState(fresh);
+      saveState();
+      renderAll();
+      setStatus(`Modus: ${modeLabel()} (zurückgesetzt)`);
+      showScreen("score");
+    }
+
+    // Sum view toggle
+    document.getElementById("segStandard").addEventListener("click", () => {
+      if (state.sumView === "standard") return;
+      setUndoSnapshot();
+      state.sumView = "standard";
+      saveState();
+      updateSumViewUI();
+      renderSums();
+      setStatus("Summe: Standard");
+    });
+    document.getElementById("segPoints").addEventListener("click", () => {
+      if (state.sumView === "points") return;
+      setUndoSnapshot();
+      state.sumView = "points";
+      saveState();
+      updateSumViewUI();
+      renderSums();
+      setStatus("Summe: Nach Punkten");
+    });
+
+    // Enter-to-next behavior (Scorekeeper)
+    function focusNextInput(current){
+      const inputs = Array.from(document.querySelectorAll('#rounds input.num'));
+      const i = inputs.indexOf(current);
+      if (i >= 0 && i < inputs.length - 1){
+        inputs[i+1].focus();
+        inputs[i+1].select?.();
+      } else {
+        current.blur();
+      }
+    }
+    document.addEventListener("keydown", (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLInputElement)) return;
+      if (e.key !== "Enter") return;
+
+      // Only for the scoring inputs / name inputs
+      if (el.classList.contains("num") || el.classList.contains("nameInput")){
+        e.preventDefault();
+        if (el.classList.contains("num")){
+          focusNextInput(el);
+        } else {
+          el.blur();
+        }
+      }
+    });
+
+    // Input handling
+    document.addEventListener("input", (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLInputElement)) return;
+
+      if (el.dataset.kind === "maxZero"){
+        setUndoSnapshot();
+        const v = Number(el.value);
+        state.rules.maxZeroStreak = Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 2;
+        saveState();
+        updateZeroRuleUI();
+        renderRounds();
+        renderStats();
+        setStatus("Regel gespeichert");
+        return;
+      }
+
+      if (el.dataset.kind === "bid" || el.dataset.kind === "actual"){
+        const r = Number(el.dataset.round);
+        const p = Number(el.dataset.player);
+        if (!Number.isFinite(r) || !Number.isFinite(p)) return;
+
+        setUndoSnapshot();
+
+        const bidEl = document.querySelector(`input[data-kind="bid"][data-round="${r}"][data-player="${p}"]`);
+        const actEl = document.querySelector(`input[data-kind="actual"][data-round="${r}"][data-player="${p}"]`);
+
+        state.rounds[r].bid[p] = numOrNull(bidEl.value);
+        state.rounds[r].actual[p] = numOrNull(actEl.value);
+
+        saveState();
+        renderRounds();
+        renderSums();
+        renderStats();
+        setStatus("gespeichert");
+        return;
+      }
+
+      if (el.dataset.kind === "simple"){
+        const r = Number(el.dataset.round);
+        const p = Number(el.dataset.player);
+        if (!Number.isFinite(r) || !Number.isFinite(p)) return;
+
+        setUndoSnapshot();
+        state.rounds[r].simple[p] = numOrNull(el.value); // null -> treated as 0
+        saveState();
+        renderSums();
+        renderStats();
+        setStatus("gespeichert");
+        return;
+      }
+
+      // playerName: keep it on input but single-step undo still works (snapshot just before first change)
+      if (el.dataset.kind === "playerName"){
+        const p = Number(el.dataset.player);
+        if (!Number.isFinite(p)) return;
+
+        setUndoSnapshot();
+        state.players[p] = el.value || `Spieler ${p+1}`;
+        saveState();
+        renderRounds();
+        renderSums();
+        renderStats();
+        setStatus("Namen gespeichert");
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLElement)) return;
+
+      // Mode toggle
+      if (el.dataset.kind === "modeToggle" || el.closest?.('[data-kind="modeToggle"]')){
+        const isSimple = state.mode === "simple";
+        setMode(isSimple ? "normal" : "simple");
+        return;
+      }
+
+      if (el.dataset.kind === "removePlayer"){
+        if (state.players.length <= 1) return;
+
+        const p = Number(el.dataset.player);
+        if (!Number.isFinite(p)) return;
+
+        const name = state.players[p] || `Spieler ${p+1}`;
+        const ok = confirm(`Spieler "${name}" wirklich entfernen?\nAlle Werte werden gelöscht.`);
+        if (!ok) return;
+
+        setUndoSnapshot();
+
+        state.players.splice(p, 1);
+        for (const r of state.rounds){
+          r.bid.splice(p, 1);
+          r.actual.splice(p, 1);
+          r.simple.splice(p, 1);
+        }
+        saveState();
+        renderAll();
+        setStatus(`"${name}" entfernt`);
+      }
+    });
+
+    // Actions
+    window.addRound = function(){
+      setUndoSnapshot();
+      state.rounds.push(normalizeRound({}, state.players.length));
+      saveState();
+      renderRounds();
+      renderSums();
+      renderStats();
+      setStatus(`Runde ${state.rounds.length} hinzugefügt`);
+
+      // Mini vibration
+      if (navigator.vibrate) navigator.vibrate(20);
+
+      const roundsEl = document.getElementById("rounds");
+      const last = roundsEl.lastElementChild;
+      if (last) last.scrollIntoView({behavior:"smooth", block:"end"});
+    }
+
+    window.addPlayer = function(){
+      setUndoSnapshot();
+      const newName = `Spieler ${state.players.length + 1}`;
+      state.players.push(newName);
+      for (const r of state.rounds){
+        r.bid.push(null);
+        r.actual.push(null);
+        r.simple.push(null);
+      }
+      saveState();
+      renderAll();
+      setStatus(`${newName} hinzugefügt`);
+    }
+
+    window.newGame = function(){
+      const ok = confirm("Neues Spiel starten?\n\n⚠️ Spieler, Runden und Werte werden gelöscht.");
+      if (!ok) return;
+
+      setUndoSnapshot();
+
+      const keepMode = state.mode;        // keep setting
+      const keepSumView = "standard";     // reset view to standard
+      state = defaultState();
+      state.mode = keepMode;
+      state.sumView = keepSumView;
+
+      localStorage.removeItem(STORAGE_KEY);
+      ensureAtLeastOneRound();
+      saveState();
+      renderAll();
+      setStatus("neues Spiel gestartet");
+      showScreen("score");
+    }
+
+    // Init
+    state = sanitizeState(state);
+    ensureAtLeastOneRound();
+    saveState();
+    renderAll();
+    setStatus("bereit");
+  </script>
+</body>
+</html>
